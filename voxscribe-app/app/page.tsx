@@ -24,7 +24,7 @@ const supabase =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://voxscribeai.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const buildApiUrl = (path: string) =>
   `${API_BASE_URL.replace(/\/$/, "")}${path}`;
 
