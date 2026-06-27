@@ -51,52 +51,49 @@ If you wish to just develop locally and not deploy to Vercel, [follow the steps 
 
 ## Clone and run locally
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+1. Create a Supabase project via the Supabase dashboard: https://database.new
 
-2. Create a Next.js app using the Supabase Starter template npx command
+2. Install frontend dependencies from the root project folder:
 
    ```bash
-   npx create-next-app --example with-supabase with-supabase-app
+   cd voxscribe-app
+   npm install
    ```
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
+3. Configure your local frontend environment:
+
+   Create `voxscribe-app/.env.local` with:
+
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
+   NEXT_PUBLIC_API_URL=http://localhost:8000
    ```
 
+   > If your Supabase dashboard shows `NEXT_PUBLIC_SUPABASE_ANON_KEY`, you can use that value here instead of `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+
+4. Start the backend server from the repository root:
+
    ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
+   cd voxscribe-backend
+   py -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
    ```
 
-3. Use `cd` to change into the app's directory
+5. Start the frontend server:
 
    ```bash
-   cd with-supabase-app
-   ```
-
-4. Rename `.env.example` to `.env.local` and update the following:
-
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
-
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
-
-5. You can now run the Next.js local development server:
-
-   ```bash
+   cd ../voxscribe-app
    npm run dev
    ```
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+   The app should now be available at http://localhost:3000.
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+6. If the UI reports a backend connection error, verify:
+   - the backend is running on `http://127.0.0.1:8000`
+   - `NEXT_PUBLIC_API_URL` is set to `http://localhost:8000`
+   - `CORS_ALLOWED_ORIGINS` in `voxscribe-backend/.env` includes `http://localhost:3000`
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+> You can remove `components.json` and re-install shadcn/ui if you want a different UI setup.
 
 ## Feedback and issues
 

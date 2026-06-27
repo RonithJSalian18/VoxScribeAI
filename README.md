@@ -79,10 +79,13 @@ HUGGINGFACE_API_KEY=your_huggingface_api_key_here
 Start the backend server:
 
 ```bash
-uvicorn main:app --reload
+cd voxscribe-backend
+py -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-> The API will run at http://localhost:8000
+> The API will run at http://127.0.0.1:8000
+>
+> If the frontend reports a backend connection error, confirm the backend is running and that `NEXT_PUBLIC_API_URL` is set to `http://localhost:8000`.
 
 ### 4. Frontend Setup (Next.js)
 

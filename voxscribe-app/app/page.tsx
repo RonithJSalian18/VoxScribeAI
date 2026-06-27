@@ -24,9 +24,27 @@ const supabase =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const buildApiUrl = (path: string) =>
-  `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+const DEFAULT_API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL =
+  process.env.NODE_ENV === "development"
+    ? DEFAULT_API_BASE_URL
+    : process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_BASE_URL;
+const buildApiUrl = (baseUrl: string, path: string) =>
+  `${baseUrl.replace(/\/$/, "")}${path}`;
+
+const fetchBackend = async (path: string, options: RequestInit) => {
+  const primaryUrl = buildApiUrl(API_BASE_URL, path);
+  const fallbackUrl = buildApiUrl(DEFAULT_API_BASE_URL, path);
+
+  try {
+    return await fetch(primaryUrl, options);
+  } catch (error) {
+    if (API_BASE_URL !== DEFAULT_API_BASE_URL) {
+      return await fetch(fallbackUrl, options);
+    }
+    throw error;
+  }
+};
 
 export default function Home() {
   // Auth State
@@ -102,7 +120,7 @@ export default function Home() {
     formData.append("user_id", user.id); // Pass user ID to associate the PDF with them
 
     try {
-      const response = await fetch(buildApiUrl("/vault/upload"), {
+      const response = await fetchBackend("/vault/upload", {
         method: "POST",
         body: formData,
       });
@@ -123,8 +141,12 @@ export default function Home() {
         setUploadStatus(data.message || "Upload failed. Please try again.");
       }
     } catch (err) {
+      const attempted =
+        API_BASE_URL !== DEFAULT_API_BASE_URL
+          ? `${API_BASE_URL} or ${DEFAULT_API_BASE_URL}`
+          : DEFAULT_API_BASE_URL;
       setUploadStatus(
-        "Failed to connect to the backend. Check NEXT_PUBLIC_API_URL.",
+        `Failed to connect to the backend. Tried ${attempted}. Ensure the backend is running on port 8000 and that CORS allows localhost:3000.`,
       );
     } finally {
       setIsUploading(false);
@@ -143,7 +165,7 @@ export default function Home() {
     setTimeout(() => setLoadingStep(3), 5000);
 
     try {
-      const response = await fetch(buildApiUrl("/generate"), {
+      const response = await fetchBackend("/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -180,7 +202,13 @@ export default function Home() {
         setError(data.message || "Something went wrong.");
       }
     } catch (err) {
-      setError("Failed to connect to the backend. Check NEXT_PUBLIC_API_URL.");
+      const attempted =
+        API_BASE_URL !== DEFAULT_API_BASE_URL
+          ? `${API_BASE_URL} or ${DEFAULT_API_BASE_URL}`
+          : DEFAULT_API_BASE_URL;
+      setError(
+        `Failed to connect to backend. Tried ${attempted}. Ensure your backend is running on port 8000 and that CORS allows localhost:3000.`,
+      );
     } finally {
       setIsLoading(false);
       setLoadingStep(0);
