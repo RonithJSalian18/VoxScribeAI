@@ -17,13 +17,16 @@ import {
 } from "lucide-react";
 
 // Initialize Supabase Client
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://ubwsprjkfejzsbfyzorx.supabase.co";
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVid3NwcmprZmVqenNiZnl6b3J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyOTg1OTgsImV4cCI6MjA5Nzg3NDU5OH0.lx5Il1tMJ4tuvrIB7JWtpMPXTWD7eU5vH91-ugEfEJY";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://voxscribeai.onrender.com";
+const buildApiUrl = (path: string) =>
+  `${API_BASE_URL.replace(/\/$/, "")}${path}`;
 
 export default function Home() {
   // Auth State
@@ -46,6 +49,10 @@ export default function Home() {
 
   // Listen for Auth Changes
   useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
@@ -61,6 +68,13 @@ export default function Home() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+
+    if (!supabase) {
+      setAuthError(
+        "Supabase is not configured yet. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      );
+      return;
+    }
 
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({ email, password });
@@ -88,21 +102,30 @@ export default function Home() {
     formData.append("user_id", user.id); // Pass user ID to associate the PDF with them
 
     try {
-      const response = await fetch("http://localhost:8000/vault/upload", {
+      const response = await fetch(buildApiUrl("/vault/upload"), {
         method: "POST",
         body: formData,
       });
 
-      const data = await response.json();
-      if (data.status === "Success") {
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { message: text || "Unexpected response from backend." };
+      }
+
+      if (response.ok && data.status === "Success") {
         setUploadStatus(
           "Vault updated successfully! The AI will now write like you.",
         );
       } else {
-        setUploadStatus("Upload failed. Please try again.");
+        setUploadStatus(data.message || "Upload failed. Please try again.");
       }
     } catch (err) {
-      setUploadStatus("Failed to connect to backend.");
+      setUploadStatus(
+        "Failed to connect to the backend. Check NEXT_PUBLIC_API_URL.",
+      );
     } finally {
       setIsUploading(false);
     }
@@ -120,26 +143,29 @@ export default function Home() {
     setTimeout(() => setLoadingStep(3), 5000);
 
     try {
-      // 1. Send the URL and user_id to our FastAPI backend
-      const response = await fetch("https://voxscribeai.onrender.com", {
+      const response = await fetch(buildApiUrl("/generate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           youtube_url: url,
-          user_id: user.id, // Send the user ID so the backend can search their specific vault
+          user_id: user.id,
         }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { message: text || "Unexpected response from backend." };
+      }
 
-      // 2. Handle the response
-      if (data.status === "success") {
+      if (response.ok && data.status === "success") {
         setResult(data.blog_post);
 
-        // 3. Save the generated post to the user's database history
-        if (user) {
+        if (supabase) {
           const { error: dbError } = await supabase
             .from("blog_posts")
             .insert([
@@ -154,9 +180,7 @@ export default function Home() {
         setError(data.message || "Something went wrong.");
       }
     } catch (err) {
-      setError(
-        "Failed to connect to the backend server. Make sure it is running on port 8000.",
-      );
+      setError("Failed to connect to the backend. Check NEXT_PUBLIC_API_URL.");
     } finally {
       setIsLoading(false);
       setLoadingStep(0);
@@ -267,7 +291,7 @@ export default function Home() {
             <p className="text-sm font-semibold truncate">{user.email}</p>
           </div>
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={() => supabase?.auth.signOut()}
             className="flex items-center gap-3 px-4 py-3 w-full text-left text-zinc-500 hover:bg-zinc-50 hover:text-red-600 rounded-xl font-medium transition-colors"
           >
             <LogOut className="w-5 h-5" />

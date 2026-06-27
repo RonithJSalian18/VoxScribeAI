@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, UploadFile, File, Form
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,10 +8,11 @@ import fitz
 
 app = FastAPI(title="VoxScribe API")
 
-# We need to allow Next.js (running on localhost:3000) to talk to this server
+allowed_origins = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, you would change this to your Vercel URL
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,11 +21,15 @@ app.add_middleware(
 # This defines the exact format of the data Next.js will send us
 class GenerateRequest(BaseModel):
     youtube_url: str
-    user_id: str = None # NEW: Expect the user ID from the frontend
+    user_id: str | None = None
 
 @app.get("/")
 def read_root():
     return {"status": "VoxScribe Backend is running!"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.post("/vault/upload")
 async def upload_to_vault(file: UploadFile = File(...), user_id: str = Form(...)):
@@ -57,19 +64,21 @@ async def generate_blog(request: GenerateRequest):
     and FastAPI hands it over to our LangGraph workers.
     """
     print(f"Received request from frontend for URL: {request.youtube_url}")
-    
+
     try:
-        # 1. Prepare the starting state
         initial_state = {
             "youtube_url": request.youtube_url,
-            "user_id": request.user_id # NEW: Pass user_id to the agent state
+            "user_id": request.user_id,
         }
-        
-        # 2. Run the LangGraph pipeline
+
         result = langgraph_app.invoke(initial_state)
-        
-        # 3. Return the final blog post back to the frontend
-        return {"status": "success", "blog_post": result["final_post"]}
-        
+        final_post = result.get("final_post", "")
+
+        if not final_post:
+            return {"status": "error", "message": "The backend did not produce a blog post."}
+
+        return {"status": "success", "blog_post": final_post}
+
     except Exception as e:
+        print(f"Generate error: {e}")
         return {"status": "error", "message": str(e)}

@@ -3,7 +3,7 @@ import re
 from typing import TypedDict
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpointEmbeddings
 
 # Tooling and AI
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -19,17 +19,20 @@ load_dotenv()
 # Initialize Supabase connection
 supabase_url: str = os.environ.get("SUPABASE_URL", "")
 supabase_key: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
-supabase: Client = create_client(supabase_url, supabase_key)
+supabase: Client | None = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
 
 # Grab the API key from Render's environment variables / local .env
 hf_api_key = os.environ.get("HUGGINGFACE_API_KEY", "")
 
-# Initialize Embeddings using Hugging Face API (Saves RAM for Render!)
-embeddings = HuggingFaceEndpointEmbeddings(
-    model="sentence-transformers/all-MiniLM-L6-v2",
-    task="feature-extraction",
-    huggingfacehub_api_token=hf_api_key
-)
+# Initialize Embeddings using Hugging Face API when available, otherwise fall back to local embeddings.
+if hf_api_key:
+    embeddings = HuggingFaceEndpointEmbeddings(
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        task="feature-extraction",
+        huggingfacehub_api_token=hf_api_key,
+    )
+else:
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # 1. Define the State
 class GraphState(TypedDict):
@@ -77,23 +80,21 @@ def writer_node(state: GraphState):
     brand_voice_context = ""
     
     # --- RAG VAULT SEARCH LOGIC ---
-    if user_id:
+    if user_id and supabase is not None:
         print("-> Searching Vault for Brand Voice...")
         try:
-            # 1. Turn the outline into math so we can search conceptually
             query_vector = embeddings.embed_query(state['outline'][:1000])
-            
-            # 2. Run the Supabase SQL search function
+
             response = supabase.rpc(
                 "match_documents",
                 {
                     "query_embedding": query_vector,
                     "match_user_id": user_id,
-                    "match_threshold": 0.0, # FIXED: Lowered to 0.0 to ensure we ALWAYS grab the user's uploaded style
-                    "match_count": 3        # Grab top 3 paragraphs
+                    "match_threshold": 0.0,
+                    "match_count": 3,
                 }
             ).execute()
-            
+
             if response.data:
                 retrieved_chunks = [doc['content'] for doc in response.data]
                 brand_voice_context = "\n\n---\n\n".join(retrieved_chunks)
