@@ -121,7 +121,7 @@ export default function Home() {
 
     try {
       // 1. Send the URL and user_id to our FastAPI backend
-      const response = await fetch("http://localhost:8000/generate", {
+      const response = await fetch("https://voxscribeai.onrender.com", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

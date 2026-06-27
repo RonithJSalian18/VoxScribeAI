@@ -17,7 +17,7 @@ export default function GeneratorUI() {
 
     try {
       // 1. Send the URL to our FastAPI backend
-      const response = await fetch("http://localhost:8000/generate", {
+      const response = await fetch("https://voxscribeai.onrender.com", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
