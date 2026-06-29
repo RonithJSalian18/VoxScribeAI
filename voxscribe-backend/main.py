@@ -8,13 +8,17 @@ import fitz
 
 app = FastAPI(title="VoxScribe API")
 
-allowed_origins = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if origin.strip()]
+# Add your exact Vercel URL here, plus localhost for local testing
+origins = [
+    "https://voxscribeai.onrender.com", # REPLACE THIS with your actual live Vercel URL
+    "http://localhost:3000",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"], # Allows POST, GET, OPTIONS, etc.
     allow_headers=["*"],
 )
 
