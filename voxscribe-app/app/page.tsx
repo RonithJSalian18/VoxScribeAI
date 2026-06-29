@@ -33,17 +33,8 @@ const buildApiUrl = (baseUrl: string, path: string) =>
   `${baseUrl.replace(/\/$/, "")}${path}`;
 
 const fetchBackend = async (path: string, options: RequestInit) => {
-  const primaryUrl = buildApiUrl(API_BASE_URL, path);
-  const fallbackUrl = buildApiUrl(DEFAULT_API_BASE_URL, path);
-
-  try {
-    return await fetch(primaryUrl, options);
-  } catch (error) {
-    if (API_BASE_URL !== DEFAULT_API_BASE_URL) {
-      return await fetch(fallbackUrl, options);
-    }
-    throw error;
-  }
+  const finalUrl = buildApiUrl(API_BASE_URL, path);
+  return await fetch(finalUrl, options);
 };
 
 export default function Home() {
