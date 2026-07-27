@@ -24,18 +24,8 @@ const supabase =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-const DEFAULT_API_BASE_URL = "http://localhost:8000";
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? DEFAULT_API_BASE_URL
-    : process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_BASE_URL;
-const buildApiUrl = (baseUrl: string, path: string) =>
-  `${baseUrl.replace(/\/$/, "")}${path}`;
+import { fetchBackend, API_BASE_URL, DEFAULT_API_BASE_URL } from "@/lib/api";
 
-const fetchBackend = async (path: string, options: RequestInit) => {
-  const finalUrl = buildApiUrl(API_BASE_URL, path);
-  return await fetch(finalUrl, options);
-};
 
 export default function Home() {
   // Auth State
