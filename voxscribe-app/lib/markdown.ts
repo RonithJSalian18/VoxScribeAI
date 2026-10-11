@@ -16,9 +16,8 @@ export const getPostExcerpt = (markdown: string, maxLength = 160): string => {
   const body = markdown
     .split("\n")
     .filter((line) => line.trim() && !/^\s*(#|>|---|\*\*\*)/.test(line))
-    .map(stripInlineMarkdown)
+    .map((line) => stripInlineMarkdown(line.replace(/^\s*([-*+]|\d+[.)])\s+/, "")))
     .join(" ")
-    .replace(/^[-*+]\s+/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return body.length > maxLength ? `${body.slice(0, maxLength).trimEnd()}…` : body;

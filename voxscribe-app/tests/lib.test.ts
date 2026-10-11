@@ -11,7 +11,7 @@ describe("markdown helpers", () => {
   });
 
   it("builds a plain-text excerpt that skips headings and quotes", () => {
-    expect(getPostExcerpt(post)).toBe("First paragraph with emphasis. - item");
+    expect(getPostExcerpt(post)).toBe("First paragraph with emphasis. item");
     expect(getPostExcerpt("word ".repeat(100), 20)).toMatch(/…$/);
   });
 
