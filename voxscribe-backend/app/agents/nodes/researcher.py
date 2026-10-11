@@ -1,41 +1,52 @@
 import logging
-from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
+from app.agents.prompts import audience_and_language, format_label, normalize_options
 from app.agents.state import GraphState
-from app.services.youtube_service import fetch_transcript
-from app.config import settings
+from app.core.llm import get_llm
+from app.services.source_service import SourceError, load_source
 
 logger = logging.getLogger(__name__)
 
-def get_llm():
-    """Returns Groq Chat LLM client."""
-    return ChatGroq(
-        model="llama-3.1-8b-instant",
-        temperature=0.7,
-        groq_api_key=settings.GROQ_API_KEY
-    )
+MAX_TRANSCRIPT_CHARS = 12000
 
 def researcher_node(state: GraphState) -> dict:
-    """Agent 1: Extracts the transcript and creates a structured blog outline."""
+    """Agent 1: Retrieves the source transcript/text and creates a structured outline."""
     logger.info("--- [Agent 1] RESEARCHER WORKING ---")
-    url = state.get("youtube_url", "")
-    
-    transcript, err = fetch_transcript(url)
-    if err:
-        logger.error(f"Researcher failed: {err}")
-        return {
-            "transcript": "",
-            "outline": "",
-            "error": err
-        }
-    
-    llm = get_llm()
-    prompt = f"Create a detailed, high-level blog post outline based on this YouTube transcript:\n\n{transcript[:5000]}"
+    options = normalize_options(state.get("options"))
+
+    transcript = state.get("transcript") or ""
+    timestamped = state.get("timestamped_transcript") or ""
+    title = state.get("source_title") or ""
+
+    # Audio/pasted sources arrive with a transcript already; URLs are fetched here
+    if not transcript:
+        try:
+            source = load_source(state.get("source_type", "youtube"), state.get("source_url", ""))
+        except SourceError as e:
+            logger.error(f"Researcher failed: {e}")
+            return {"transcript": "", "outline": "", "error": str(e)}
+        transcript, timestamped, title = source.transcript, source.timestamped_transcript, source.title
+
+    use_timestamps = options["output_format"] == "show_notes" and timestamped
+    material = (timestamped if use_timestamps else transcript)[:MAX_TRANSCRIPT_CHARS]
+
+    prompt = f"""Create a detailed, well-structured outline for a {format_label(options)} based on the source material below.
+Capture the key ideas, arguments, examples and memorable quotes in a logical order.
+{"Keep the [MM:SS] timestamps next to each section so chapters can be generated." if use_timestamps else ""}
+{audience_and_language(options)}
+
+Source material{f' ("{title}")' if title else ''}:
+{material}"""
+
     try:
-        outline_response = llm.invoke([HumanMessage(content=prompt)])
+        outline_response = get_llm(model=options.get("model")).invoke([HumanMessage(content=prompt)])
         return {
             "transcript": transcript,
+            "timestamped_transcript": timestamped,
+            "source_title": title,
             "outline": outline_response.content,
+            "options": options,
+            "revision_count": 0,
             "error": None
         }
     except Exception as e:

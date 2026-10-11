@@ -1,8 +1,8 @@
-import fitz  # PyMuPDF
+import pymupdf
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extracts raw text content from PDF bytes using PyMuPDF."""
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     text_chunks = []
     for page in doc:
         page_text = page.get_text()

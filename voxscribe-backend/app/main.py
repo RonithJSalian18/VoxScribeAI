@@ -17,12 +17,15 @@ app = FastAPI(
 )
 
 # Middleware Configuration
+# Auth uses Bearer tokens (not cookies), so credentials mode is unnecessary.
+# Set CORS_ORIGINS in production; when empty, any origin is allowed (development default).
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",
-    allow_credentials=True,
+    allow_origins=settings.CORS_ORIGINS or ["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "Retry-After"],
 )
 
 # Register API Router

@@ -1,0 +1,21 @@
+{
+  "name": "voxscribe-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VoxScribe AI - Full-stack Multi-Agent & RAG YouTube to Blog Generator",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm --prefix voxscribe-app run dev",
+    "dev:backend": "cd voxscribe-backend && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "start:backend": "cd voxscribe-backend && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "build:frontend": "npm --prefix voxscribe-app run build",
+    "lint:frontend": "npm --prefix voxscribe-app run lint",
+    "install:frontend": "npm --prefix voxscribe-app install",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd voxscribe-backend && python -m pytest -q",
+    "test:frontend": "npm --prefix voxscribe-app test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

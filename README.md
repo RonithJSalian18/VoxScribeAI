@@ -1,127 +1,235 @@
 # 🎙️ VoxScribe AI
 
-VoxScribe AI is a full-stack AI application that transforms any YouTube video into a high-quality, SEO-optimized blog post. Using a multi-agent workflow and Retrieval-Augmented Generation (RAG), VoxScribe doesn't just summarize—it analyzes your past writing via a "Brand Voice Vault" to ensure the generated content sounds exactly like you.
+VoxScribe AI is a full-stack, multi-agent AI platform that turns YouTube videos, web articles and podcasts into blog posts, X threads, LinkedIn posts, newsletters and show notes written in your exact personal or brand voice, using Retrieval-Augmented Generation (RAG).
+
+---
+
+## 🏗️ Project Architecture & Directory Structure
+
+VoxScribe is a monorepo with a **Next.js 16 (App Router)** frontend and a **FastAPI (Python)** multi-agent backend powered by **LangGraph**, **Groq** (Llama models + Whisper) and **Supabase (pgvector)**.
+
+```
+VoxScribe/
+├── package.json                   # Monorepo scripts (dev, test, build)
+├── docker-compose.yml             # Full stack in containers
+├── .env.example                   # Environment variable template
+├── .github/workflows/ci.yml       # CI: backend tests, frontend typecheck/test/lint/build
+├── supabase/
+│   └── schema.sql                 # Tables, RLS policies, pgvector index, match_documents RPC (idempotent)
+├── voxscribe-app/                 # Next.js frontend
+│   ├── app/page.tsx               # Dashboard (vault, generation, history)
+│   ├── components/dashboard/      # BrandVault, GeneratePost, Progress, OutlineReview, ResultViewer, SEO, Publish, History
+│   ├── components/layout/         # Sidebar (with usage meter) & mobile nav
+│   ├── hooks/                     # useVoices, useAccount
+│   ├── lib/                       # api (fetch + SSE), export, markdown, formats
+│   ├── tests/                     # Vitest unit tests
+│   └── Dockerfile
+└── voxscribe-backend/             # FastAPI backend
+    ├── app/
+    │   ├── agents/                # LangGraph: researcher → writer ⇄ reviewer → editor
+    │   ├── api/endpoints/         # generate, vault, voices, posts, publish, meta, health
+    │   ├── core/                  # auth (Supabase JWT), llm, embeddings, rate_limit
+    │   ├── services/              # sources, transcription, vault, SEO, publishing, exports, caching
+    │   └── schemas/               # Pydantic models
+    ├── tests/                     # pytest suite (in-memory Supabase/LLM fakes)
+    └── Dockerfile
+```
+
+### Agent pipeline
+
+```
+researcher ──▶ writer ──▶ reviewer ──▶ editor ──▶ END
+   │             ▲            │
+   │             └─ revision ─┘   (once, if the review score is below 7/10)
+   └─ optional pause here for the user to edit the outline
+```
 
 ---
 
 ## ✨ Features
 
-- **Multi-Agent Pipeline:** Built with LangGraph, utilizing specialized AI agents (Researcher, Writer, and Editor) to systematically process transcripts and draft content.
-- **Brand Voice Vault (RAG):** Upload PDFs of your previous writing. The system uses HuggingFace embeddings and Supabase pgvector to analyze your style and mimic your exact tone and vocabulary.
-- **YouTube Transcript Extraction:** Automatically pulls and processes transcripts from standard YouTube URLs.
-- **Secure User Authentication:** Full user sign-up and login flow powered by Supabase Auth.
-- **Modern UI/UX:** Responsive, premium interface built with Next.js, Tailwind CSS, and Lucide icons.
+### Generation
+- **Multiple sources:** YouTube (captions, with a Whisper fallback for videos without them), web articles, and uploaded audio (MP3/M4A/WAV/…, transcribed with Groq Whisper).
+- **Output formats:** blog post, X thread, LinkedIn post, newsletter, and show notes with timestamped chapters.
+- **Controls:** length, tone, target audience, language, SEO keyword and AI model.
+- **Outline review:** optionally pause after the Researcher, edit the outline, then continue.
+- **Reviewer agent:** scores voice match and coverage, and sends weak drafts back to the Writer once.
+- **Live progress:** real per-agent progress over Server-Sent Events (with keep-alive heartbeats).
+
+### Brand Voice Vault
+- **Multiple voices** (e.g. "Personal blog" vs "Company blog").
+- **Samples from PDF, DOCX, TXT, MD, pasted text, or a URL** to one of your published articles.
+- **Manage samples:** list, see chunk counts, delete.
+- **Style profile:** an LLM-written summary of each voice's tone and habits, refreshed automatically and used alongside RAG samples.
+
+### Editing & publishing
+- **History:** search, open, edit and delete past posts.
+- **In-app editor:** Markdown editing with live preview, plus **AI rewrite of any selected passage** in your voice.
+- **Export:** Markdown, HTML, PDF (print) and Word (.docx).
+- **SEO panel:** meta description, slug, tags, readability score, reading time, and internal-link suggestions to your earlier posts.
+- **Publish as a draft (or live)** to **Dev.to, WordPress, Ghost and Hashnode**. Credentials are used per request and never stored on the server (optionally remembered in your browser).
+- **Cover image** from the source video's thumbnail.
+
+### Platform
+- **Supabase Auth** end to end: the backend verifies the user's JWT, and Row Level Security protects every table.
+- **Per-user quotas & rate limits** (daily generation limit plus per-endpoint limits), with a usage meter in the sidebar.
+- **Transcript caching** so the same video is never fetched or transcribed twice.
+- **Tests & CI:** pytest (41 tests) and Vitest, run by GitHub Actions along with typecheck, lint and build.
+- **Docker Compose** for running the full stack.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Category     | Technologies                                                                                                                |
-| :----------- | :-------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend** | Next.js (App Router, React), Tailwind CSS, Supabase Auth                                                                    |
-| **Backend**  | FastAPI (Python), LangGraph, LangChain, Groq API (Llama 3.1 8B), HuggingFace Inference API, PyMuPDF, YouTube Transcript API |
-| **Database** | Supabase (PostgreSQL with pgvector for vector similarity search)                                                            |
+| Domain | Tech Stack |
+| :--- | :--- |
+| **Frontend** | Next.js 16 (App Router), React 19, Tailwind CSS, Lucide Icons, Supabase JS, react-markdown, marked |
+| **Backend** | FastAPI (Python 3.10+), LangGraph, LangChain, Groq (Llama chat models + Whisper), PyMuPDF, python-docx, BeautifulSoup, yt-dlp, YouTube Transcript API |
+| **Database & RAG** | Supabase PostgreSQL, `pgvector`, `all-MiniLM-L6-v2` embeddings (local via fastembed, or HuggingFace Inference API) |
 
 ---
 
-## 🚀 Local Setup
-
-Follow these steps to run VoxScribe AI on your local machine.
+## 🚀 Getting Started & Setup
 
 ### 1. Prerequisites
 
-- Node.js (v18+)
-- Python (3.11 or 3.12 recommended)
-- A Supabase project (with pgvector enabled)
-- API Keys for Groq and HuggingFace
+- **Node.js** v20 or later
+- **Python** 3.10 – 3.12
+- **Supabase project** with `pgvector` available
+- **API keys:** Groq API key (a HuggingFace token is optional; embeddings run locally by default)
 
-### 2. Clone the Repository
+### 2. Environment Setup
 
-```bash
-git clone [https://github.com/your-username/VoxScribeAI.git](https://github.com/your-username/VoxScribeAI.git)
-cd VoxScribeAI
-```
+Copy `.env.example` into `voxscribe-backend/.env` and `voxscribe-app/.env.local`:
 
-### 3. Backend Setup (FastAPI)
-
-Navigate to the backend directory and set up your Python environment:
-
-```bash
-cd voxscribe-backend
-python -m venv .venv
-```
-
-Activate the virtual environment:
-
-```bash
-# On Windows:
-.venv\Scripts\activate
-
-# On Mac/Linux:
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Create a `.env` file in the `voxscribe-backend` folder and add your secret API keys:
-
+#### Backend (`voxscribe-backend/.env`)
 ```env
-SUPABASE_URL=your_supabase_project_url_here
-SUPABASE_SERVICE_KEY=your_supabase_service_role_key_here
-GROQ_API_KEY=your_groq_api_key_here
-HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+SUPABASE_URL=https://your-supabase-project.supabase.co
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+GROQ_API_KEY=gsk_your_groq_api_key
+HUGGINGFACE_API_KEY=hf_your_huggingface_api_token   # only needed if EMBEDDINGS_PROVIDER=huggingface
+
+# Optional
+EMBEDDINGS_PROVIDER=local                                         # local (free, on-device) | huggingface
+AVAILABLE_MODELS=openai/gpt-oss-20b,openai/gpt-oss-120b,qwen/qwen3.8-27b   # first is the default
+DAILY_GENERATION_LIMIT=25                                         # 0 = unlimited
+ENABLE_WHISPER_FALLBACK=true
+CORS_ORIGINS=http://localhost:3000                                # empty = allow any origin
 ```
 
-Start the backend server:
-
-```bash
-cd voxscribe-backend
-py -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
-```
-
-> The API will run at http://127.0.0.1:8000
->
-> If the frontend reports a backend connection error, confirm the backend is running and that `NEXT_PUBLIC_API_URL` is set to `http://localhost:8000`.
-
-### 4. Frontend Setup (Next.js)
-
-Open a new terminal window, navigate to the root directory, and install dependencies:
-
-```bash
-npm install
-```
-
-Create a `.env.local` file in the root directory for your public Supabase keys and API endpoint:
-
+#### Frontend (`voxscribe-app/.env.local`)
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url_here
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Start the frontend development server:
+### 3. Database Initialization
 
+Run `supabase/schema.sql` in the Supabase SQL Editor. The script is **idempotent**, so re-run it after pulling updates. It:
+1. Enables `pgvector`.
+2. Creates `voices`, `vault_sources`, `documents`, `blog_posts` and `transcripts`.
+3. Migrates existing writing samples into a "Default" voice.
+4. Registers the `match_documents` RPC (callable only by the service role).
+5. Enables Row Level Security with per-user policies.
+
+### 4. Installation & Running
+
+#### Quickstart
 ```bash
+npm install
+npm run dev        # starts backend (port 8000) and frontend (port 3000)
+```
+> The backend command uses `python`, so activate the backend virtualenv first.
+
+#### Manual Startup
+
+**Backend:**
+```bash
+cd voxscribe-backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # Mac/Linux
+pip install -r requirements.txt
+python main.py
+```
+> API runs at `http://127.0.0.1:8000` (interactive docs at `/docs`).
+
+**Frontend:**
+```bash
+cd voxscribe-app
+npm install
 npm run dev
 ```
+> Web app runs at `http://localhost:3000`.
 
-> The web app will run at http://localhost:3000
+#### Docker
+```bash
+# Put NEXT_PUBLIC_* values in a root .env file (or export them), then:
+docker compose up --build
+```
+
+### 5. Tests
+
+```bash
+npm test                         # both suites
+cd voxscribe-backend && pip install -r requirements-dev.txt && python -m pytest -q
+cd voxscribe-app && npm test     # Vitest
+```
 
 ---
 
-## ☁️ Deployment
+## 🔌 API Reference
 
-This project is configured for cloud deployment:
+All endpoints except `GET /` and `GET /models` require `Authorization: Bearer <Supabase access token>`.
 
-- **Backend:** Designed to be deployed on Render as a Python Web Service. Ensure your Build Command is `pip install --upgrade pip setuptools wheel && pip install -r voxscribe-backend/requirements.txt` and remember to add your API keys to Render's Environment Variables dashboard.
-- **Frontend:** Designed for one-click deployment on Vercel. Be sure to update your API fetch URLs in Next.js from `localhost:8000` to your live Render URL before deploying.
+| Method & path | Description |
+| :--- | :--- |
+| `GET /` | Health check |
+| `GET /models` | Available AI models |
+| `GET /usage` | Quota and content stats for the current user |
+| `GET /voices` · `POST /voices` | List (creates "Default" on first use) / create voices |
+| `PATCH /voices/{id}` · `DELETE /voices/{id}` | Rename / delete a voice (and its samples) |
+| `POST /voices/{id}/profile` | Regenerate a voice's style profile |
+| `POST /vault/upload` | Multipart `file` (PDF/DOCX/TXT/MD) + optional `voice_id` |
+| `POST /vault/text` · `POST /vault/url` | Add pasted text / import an article URL |
+| `GET /vault/sources` · `DELETE /vault/sources/{id}` | List / delete writing samples |
+| `POST /generate/stream` | Generate with SSE progress (see below) |
+| `POST /generate/resume` | Continue a run paused for outline review |
+| `POST /generate` | Non-streaming generation |
+| `POST /generate/transcribe` | Transcribe an audio file for use as a source |
+| `POST /posts/rewrite` | Rewrite a passage in the user's voice |
+| `POST /posts/seo` | SEO metadata, readability and internal links |
+| `POST /posts/export/docx` | Markdown → Word document |
+| `POST /publish/{devto\|wordpress\|ghost\|hashnode}` | Publish (draft by default) |
+
+### Generation request
+```json
+{
+  "source_type": "youtube",
+  "source_url": "https://www.youtube.com/watch?v=EXAMPLE",
+  "voice_id": "optional-voice-uuid",
+  "options": {
+    "output_format": "blog",
+    "length": "medium",
+    "tone": "Conversational",
+    "audience": "early-stage founders",
+    "language": "English",
+    "keyword": "remote work",
+    "model": "openai/gpt-oss-120b"
+  },
+  "review_outline": false
+}
+```
+For audio, call `/generate/transcribe` first, then send `"source_type": "text"` with the returned `transcript`, `timestamped_transcript` and a `source_label`.
+
+### Stream events
+`started` → `progress` (one per agent; `writer` includes `voice_samples`, `reviewer` includes `score`) → `result` (`blog_post`, `post_id`) or `error`. With `review_outline: true` the stream ends with `outline` (`thread_id`, `outline`); send both to `/generate/resume`.
 
 ---
 
-## 🤝 Contributing
+## 📦 Deployment notes
 
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
+- Set `CORS_ORIGINS` to your frontend's origin in production.
+- Rate limits and paused outline-review sessions are kept **in memory per process**. Run a single backend instance, or move them to Redis before scaling out.
+- The Whisper fallback needs outbound access to YouTube; set `ENABLE_WHISPER_FALLBACK=false` to disable it.

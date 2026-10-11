@@ -1,0 +1,31 @@
+# Runs the full stack locally:  docker compose up --build
+# Backend secrets come from voxscribe-backend/.env.
+# Frontend NEXT_PUBLIC_* values are read from a root .env file (or your shell) at build time.
+services:
+  backend:
+    build: ./voxscribe-backend
+    env_file: ./voxscribe-backend/.env
+    environment:
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./voxscribe-app
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        # The browser calls the backend directly, so this must be reachable from the user's machine
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

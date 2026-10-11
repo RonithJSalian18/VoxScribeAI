@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
-import { InfoIcon } from "lucide-react";
-import { FetchDataSteps } from "@/components/tutorial/fetch-data-steps";
+import { ShieldCheck, User, Server } from "lucide-react";
 import { Suspense } from "react";
 
 async function UserDetails() {
@@ -18,25 +16,41 @@ async function UserDetails() {
 
 export default function ProtectedPage() {
   return (
-    <div className="flex-1 w-full flex flex-col gap-12">
-      <div className="w-full">
-        <div className="bg-accent text-sm p-3 px-5 rounded-md text-foreground flex gap-3 items-center">
-          <InfoIcon size="16" strokeWidth={2} />
-          This is a protected page that you can only see as an authenticated
-          user
-        </div>
+    <div className="flex-1 w-full max-w-4xl mx-auto p-6 md:p-10 flex flex-col gap-8">
+      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm p-4 px-5 rounded-2xl flex gap-3 items-center shadow-sm">
+        <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-600" />
+        <p className="font-medium">
+          Protected Area: You are securely authenticated with VoxScribe AI session token.
+        </p>
       </div>
-      <div className="flex flex-col gap-2 items-start">
-        <h2 className="font-bold text-2xl mb-4">Your user details</h2>
-        <pre className="text-xs font-mono p-3 rounded border max-h-32 overflow-auto">
-          <Suspense>
+
+      <div className="bg-white p-8 rounded-3xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-zinc-100 flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <User className="w-6 h-6 text-indigo-600" />
+          <h2 className="font-bold text-2xl tracking-tight">User Session Claims</h2>
+        </div>
+        <pre className="text-xs font-mono p-4 bg-zinc-900 text-zinc-100 rounded-2xl max-h-64 overflow-auto">
+          <Suspense fallback={<p>Loading session data...</p>}>
             <UserDetails />
           </Suspense>
         </pre>
       </div>
-      <div>
-        <h2 className="font-bold text-2xl mb-4">Next steps</h2>
-        <FetchDataSteps />
+
+      <div className="bg-white p-8 rounded-3xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-zinc-100 flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <Server className="w-6 h-6 text-indigo-600" />
+          <h2 className="font-bold text-2xl tracking-tight">System Status & Environment</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+            <p className="text-zinc-500 font-medium mb-1">Backend API Status</p>
+            <p className="font-semibold text-emerald-600">Online (FastAPI / LangGraph)</p>
+          </div>
+          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+            <p className="text-zinc-500 font-medium mb-1">Brand Voice Vector DB</p>
+            <p className="font-semibold text-indigo-600">Supabase pgvector</p>
+          </div>
+        </div>
       </div>
     </div>
   );
